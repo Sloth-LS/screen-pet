@@ -22,7 +22,7 @@ SCALE = 1.0   # 0.5 = halv størrelse, 2.0 = dobbelt størrelse
 # "mouth" er spidsen af munden, hvor tungen kommer ud (None = ingen tunge).
 DRAWINGS = {
     "sit":  {"eyes": [(436, 156, 17)], "mouth": (480, 181)},
-    "walk": {"eyes": [], "mouth": None},
+    "walk": {"eyes": [(494, 133, 20)], "mouth": None},
     "lie":  {"eyes": [], "mouth": None},
 }
 
@@ -32,7 +32,10 @@ def erase_pupils(green, outline, eyes):
     draw_outline = ImageDraw.Draw(outline)
     for x, y, r in eyes:
         box = (x - r + 2, y - r + 2, x + r - 2, y + r - 2)
-        body_color = green.getpixel((x - r + 3, y))
+        # Den farve der er mest af inde i øjet (pupillen er mindre end resten)
+        inside = [green.getpixel((px, py)) for px in range(x - r + 3, x + r - 2)
+                  for py in range(y - r + 3, y + r - 2) if (px - x) ** 2 + (py - y) ** 2 < (r - 3) ** 2]
+        body_color = max(set(inside), key=inside.count)
         draw_green.ellipse(box, fill=body_color)    # grøn igen
         draw_outline.ellipse(box, fill=(0, 0, 0, 0))  # gennemsigtig igen
 

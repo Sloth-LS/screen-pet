@@ -1,12 +1,3 @@
-"""Kamæleon desktop pet 🦎  (Windows, Mac og Linux)
-
-Venstreklik      = hjerter (klik mange gange hurtigt for en overraskelse)
-Dobbeltklik      = bliv gennemsigtig (camouflage) / vis dig igen
-Træk             = flyt den (den falder ned igen, når du slipper)
-Højreklik        = menu (gem dig, auto-camouflage, størrelse, gå en tur, sov, luk)
-Musehjul         = gør den større / mindre
-Hold musen stille foran den, så skyder den tungen ud efter den!
-"""
 import json
 import math
 import os
@@ -14,7 +5,6 @@ import random
 import sys
 import time
 
-# Wayland (Linux) lader ikke et vindue flytte sig selv, så vi beder om X11 i stedet
 if sys.platform.startswith("linux") and os.environ.get("WAYLAND_DISPLAY"):
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
@@ -22,31 +12,28 @@ from PySide6.QtCore import QPointF, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QColor, QCursor, QPainter, QPen, QPixmap, QPolygonF
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
-# --- Indstillinger ---
-START_SIZE = 0.5          # størrelse når den starter (1.0 = tegningernes fulde størrelse)
-MIN_SIZE = 0.2            # mindste størrelse med musehjulet
-MAX_SIZE = 1.0            # største størrelse med musehjulet
-SIZES = {"Lille": 0.3, "Mellem": 0.5, "Stor": 0.75, "Kæmpe": 1.0}   # valg i menuen
-SIDE = 260                # plads til hver side af kamæleonen (til tungen) i fuld størrelse
-TOP = 170                 # plads over kamæleonen (til hjerter og Z'er)
-TICK = 30                 # millisekunder mellem hver opdatering
-SLEEP_AFTER = 60          # sekunder uden musebevægelse, før den falder i søvn
-GRAVITY = 1.2             # hvor hurtigt den falder
-TONGUE_RANGE = 230        # hvor langt tungen kan nå
-CAMO_DISTANCE = 160       # hvor tæt musen skal være for auto-camouflage
-HOP_FRAMES = 14           # hvor mange trin et hop varer
-COMBO_CLICKS = 6          # så mange klik hurtigt efter hinanden = hjerte-eksplosion
-DOUBLE_CLICK_MS = 350     # max pause mellem to klik, for at det tæller som dobbeltklik
+START_SIZE = 0.5
+MIN_SIZE = 0.2
+MAX_SIZE = 1.0
+SIZES = {"Lille": 0.3, "Mellem": 0.5, "Stor": 0.75, "Kæmpe": 1.0}
+SIDE = 260
+TOP = 170
+TICK = 30
+SLEEP_AFTER = 60
+GRAVITY = 1.2
+TONGUE_RANGE = 230
+CAMO_DISTANCE = 160
+HOP_FRAMES = 14
+COMBO_CLICKS = 6
+DOUBLE_CLICK_MS = 350
 
 
 def resource(path):
-    # Finder filer både når man kører pet.py og når det er pakket som .exe
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, path)
 
 
 def heart_shape():
-    # Den klassiske hjerte-formel. t går rundt fra 0 til 2π og tegner omridset.
     points = []
     for i in range(30):
         t = i / 30 * 2 * math.pi
@@ -62,15 +49,13 @@ HEART = heart_shape()
 class Pet(QWidget):
     def __init__(self):
         super().__init__()
-        # Ingen kant, altid øverst, ingen knap på proceslinjen, gennemsigtig baggrund
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)   # Mac: forsvind ikke, når man klikker på et andet program
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
 
         with open(resource("images/poses.json")) as f:
-            self.full_poses = json.load(f)     # øjne og mund i fuld størrelse
+            self.full_poses = json.load(f)
 
-        # De originale billeder i fuld størrelse: originals[stilling, retning, gemt]
         self.originals = {}
         for name in self.full_poses:
             for facing in ("right", "left"):
@@ -78,34 +63,32 @@ class Pet(QWidget):
                     suffix = ("_left" if facing == "left" else "") + ("_hidden" if is_hidden else "")
                     self.originals[name, facing, is_hidden] = QPixmap(resource(f"images/{name}{suffix}.png"))
 
-        # Skærmen minus proceslinjen / Dock'en
         area = QApplication.primaryScreen().availableGeometry()
         self.screen_left = area.left()
         self.screen_right = area.right()
         self.ground = area.bottom()
 
-        # Tilstand (alt det kamæleonen skal huske)
-        self.pose = "sit"              # sit / walk / lie
-        self.facing = "right"          # right / left
-        self.state = "idle"            # idle / walking / sleeping / tongue / falling / dragged
-        self.hidden = False            # gemt via menuen eller dobbeltklik
-        self.pet_x = self.screen_right - 450   # midten af kamæleonen på skærmen
-        self.pet_y = self.ground               # bunden af kamæleonen (fødderne) på skærmen
-        self.vy = 0                    # fart op/ned når den falder
-        self.hop_t = 0                 # hvor langt den er i det nuværende hop
-        self.hops_left = 0             # hvor mange hop der er tilbage på turen
+        self.pose = "sit"
+        self.facing = "right"
+        self.state = "idle"
+        self.hidden = False
+        self.pet_x = self.screen_right - 450
+        self.pet_y = self.ground
+        self.vy = 0
+        self.hop_t = 0
+        self.hops_left = 0
         self.next_idea = time.time() + 5
         self.next_z = 0
         self.tongue_t = 0
         self.tongue_target = (0, 0)
-        self.tongue_line = None        # (mund x, mund y, spids x, spids y) mens tungen er ude
+        self.tongue_line = None
         self.tongue_ready = 0
         self.last_mouse = QCursor.pos()
         self.last_mouse_move = time.time()
         self.click_times = []
-        self.click_count = 0           # antal klik i træk (til dobbeltklik)
-        self.press = None              # info om et museklik, der er i gang
-        self.effects = []              # hjerter og Z'er, der flyver op
+        self.click_count = 0
+        self.press = None
+        self.effects = []
 
         self.click_timer = QTimer(self)
         self.click_timer.setSingleShot(True)
@@ -122,9 +105,6 @@ class Pet(QWidget):
         self.timer.timeout.connect(self.tick)
         self.timer.start(TICK)
 
-    # ============================================================
-    #  Størrelse
-    # ============================================================
     def set_size(self, factor):
         factor = round(max(MIN_SIZE, min(MAX_SIZE, factor)), 2)
         if factor == self.size:
@@ -148,9 +128,6 @@ class Pet(QWidget):
             action.setChecked(SIZES[action.text()] == factor)
         self.move_window()
 
-    # ============================================================
-    #  Hjælpefunktioner
-    # ============================================================
     def direction(self):
         return 1 if self.facing == "right" else -1
 
@@ -169,7 +146,6 @@ class Pet(QWidget):
         return p.x(), p.y()
 
     def mouse_near(self, distance):
-        # Er musen tæt på midten af kamæleonen? (afstanden bliver mindre, når den er lille)
         mx, my = self.mouse_on_screen()
         center_y = self.pet_y - self.image().height() / 2
         return math.hypot(mx - self.pet_x, my - center_y) < distance * (0.4 + 0.6 * self.size)
@@ -178,12 +154,10 @@ class Pet(QWidget):
         return self.hidden or (self.camo_action.isChecked() and self.mouse_near(CAMO_DISTANCE))
 
     def body_left_top(self):
-        # Kamæleonen står altid nederst i midten af vinduet
         img = self.image()
         return self.W / 2 - img.width() / 2, self.H - img.height()
 
     def to_window(self, px, py):
-        # Laver et punkt i tegningen om til et punkt i vinduet (og spejler, hvis den kigger til venstre)
         left, top = self.body_left_top()
         if self.facing == "left":
             px = self.image().width() - px
@@ -195,16 +169,12 @@ class Pet(QWidget):
         return left <= x <= left + img.width() and top <= y <= self.H
 
     def head_position(self):
-        # Cirka hvor hovedet er (bruges til hjerter og Z'er)
         img = self.image()
         return self.W / 2 + self.direction() * img.width() * 0.32, self.H - img.height()
 
     def move_window(self):
         self.move(round(self.pet_x - self.W / 2), round(self.pet_y - self.H))
 
-    # ============================================================
-    #  Hjerter og Z'er
-    # ============================================================
     def spawn_heart(self, spread=30):
         x, y = self.head_position()
         self.effects.append({
@@ -219,18 +189,14 @@ class Pet(QWidget):
                              "x": x, "y": y - 10, "scale": 1.0})
 
     def move_effects(self):
-        # Flyv op, vrik lidt fra side til side, og forsvind ved toppen
         for e in self.effects:
             e["x"] += math.sin(e["age"] / 4) * e["wiggle"]
             e["y"] -= e["speed"]
-            if e["age"] < 25:              # vokser kun lidt i starten
+            if e["age"] < 25:
                 e["scale"] *= e["grow"]
             e["age"] += 1
         self.effects = [e for e in self.effects if e["y"] > 15 and e["age"] <= 150]
 
-    # ============================================================
-    #  Handlinger
-    # ============================================================
     def start_walk(self):
         if self.hidden:
             return
@@ -263,34 +229,29 @@ class Pet(QWidget):
         self.hidden = not self.hidden
 
     def click(self):
-        # Tæl klik i træk. Når der har været en lille pause, ser clicks_done() på hvor mange det blev.
         self.click_count += 1
         self.click_timer.start()
         if self.hidden:
-            return                         # skjult: kun dobbeltklik gør noget
+            return
         if self.state == "sleeping":
             self.wake_up()
         self.spawn_heart()
 
-        # Hjerte-combo: mange klik hurtigt efter hinanden
         now = time.time()
         self.click_times = [t for t in self.click_times if now - t <= 1.5] + [now]
         if len(self.click_times) >= COMBO_CLICKS:
             self.click_times = []
-            self.click_count = -1000       # det var en combo, ikke et dobbeltklik
+            self.click_count = -1000
             for _ in range(12):
                 self.spawn_heart(spread=90)
             if self.state in ("idle", "walking"):
                 self.happy_jump()
 
     def clicks_done(self):
-        if self.click_count == 2:          # præcis to klik = dobbeltklik
+        if self.click_count == 2:
             self.toggle_hide()
         self.click_count = 0
 
-    # ============================================================
-    #  Musen: klik, træk, hjul og menu
-    # ============================================================
     def mousePressEvent(self, event):
         x, y = event.position().x(), event.position().y()
         if event.button() != Qt.LeftButton or not self.on_body(x, y):
@@ -308,7 +269,7 @@ class Pet(QWidget):
         if not self.press["dragging"] and math.hypot(dx, dy) > 5:
             self.press["dragging"] = True
             self.state = "dragged"
-            self.pose = "walk"             # sprætter med benene, når man holder den
+            self.pose = "walk"
         if self.press["dragging"]:
             self.pet_x = self.press["pet_x"] + dx
             self.pet_y = min(self.press["pet_y"] + dy, self.ground)
@@ -317,14 +278,13 @@ class Pet(QWidget):
         if self.press is None:
             return
         if self.press["dragging"]:
-            self.state = "falling"         # slip = den falder ned
+            self.state = "falling"
             self.vy = 0
         else:
             self.click()
         self.press = None
 
     def wheelEvent(self, event):
-        # Musehjul op = større, ned = mindre
         self.set_size(self.size + (0.05 if event.angleDelta().y() > 0 else -0.05))
 
     def contextMenuEvent(self, event):
@@ -350,13 +310,9 @@ class Pet(QWidget):
         self.menu.addSeparator()
         self.menu.addAction("Luk", QApplication.quit)
 
-    # ============================================================
-    #  Hovedløkken: kører hvert 30. millisekund
-    # ============================================================
     def tick(self):
         now = time.time()
 
-        # Har musen flyttet sig?
         mouse = QCursor.pos()
         if mouse != self.last_mouse:
             self.last_mouse = mouse
@@ -365,7 +321,6 @@ class Pet(QWidget):
 
         half = self.image().width() / 2
 
-        # --- Hvad laver den lige nu? ---
         if self.state == "idle":
             if mouse_still > SLEEP_AFTER:
                 self.go_to_sleep()
@@ -376,10 +331,9 @@ class Pet(QWidget):
                 elif idea < 0.65:
                     self.turn_around()
                 elif idea < 0.9:
-                    self.pose = "walk" if self.pose == "sit" else "sit"   # rejs dig op / sæt dig ned
+                    self.pose = "walk" if self.pose == "sit" else "sit"
                 self.next_idea = now + random.uniform(4, 10)
 
-            # Tungen: musen holdes stille lige foran munden
             mouth = self.poses[self.pose]["mouth"]
             if (self.state == "idle" and mouth and not self.see_through()
                     and mouse_still > 0.8 and now > self.tongue_ready):
@@ -392,8 +346,7 @@ class Pet(QWidget):
         elif self.state == "walking":
             self.hop_t += 1
             self.pet_x += (1 + 3 * self.size) * self.direction()
-            self.pet_y = self.ground - self.hop_t * (HOP_FRAMES - self.hop_t) * 0.3 * self.size   # en lille bue
-            # Vend om ved kanten af skærmen
+            self.pet_y = self.ground - self.hop_t * (HOP_FRAMES - self.hop_t) * 0.3 * self.size
             if self.pet_x + half > self.screen_right or self.pet_x - half < self.screen_left:
                 self.turn_around()
                 self.pet_x = max(self.screen_left + half, min(self.screen_right - half, self.pet_x))
@@ -404,19 +357,19 @@ class Pet(QWidget):
                 if self.hops_left <= 0:
                     self.wake_up()
                     if random.random() < 0.5:
-                        self.pose = "walk"         # bliv stående efter turen
+                        self.pose = "walk"
 
         elif self.state == "sleeping":
             if now > self.next_z:
                 self.spawn_z()
                 self.next_z = now + 1.3
-            if self.mouse_near(200):           # vågner hvis musen kommer tæt på
+            if self.mouse_near(200):
                 self.wake_up()
 
         elif self.state == "tongue":
             self.tongue_t += 1
             frames = 8
-            p = self.tongue_t / frames if self.tongue_t <= frames else 2 - self.tongue_t / frames   # ud og ind igen
+            p = self.tongue_t / frames if self.tongue_t <= frames else 2 - self.tongue_t / frames
             mouth = self.poses[self.pose]["mouth"]
             mx, my = self.to_window(mouth["x"], mouth["y"])
             tx = mx + (self.tongue_target[0] - mx) * p
@@ -433,25 +386,21 @@ class Pet(QWidget):
             if self.pet_y >= self.ground:
                 self.pet_y = self.ground
                 if self.vy > 6:
-                    self.vy = -self.vy * 0.35      # lille bounce når den lander
+                    self.vy = -self.vy * 0.35
                 else:
                     self.vy = 0
                     self.wake_up()
 
         self.move_effects()
         self.move_window()
-        self.update()                          # tegn igen (kalder paintEvent)
+        self.update()
 
-    # ============================================================
-    #  Tegning
-    # ============================================================
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         left, top = self.body_left_top()
 
         if self.see_through():
-            # Næsten usynlig krop under omridset, så man stadig kan klikke på den
             painter.setOpacity(0.01)
             painter.drawPixmap(QPointF(left, top), self.image())
             painter.setOpacity(1.0)
@@ -459,7 +408,6 @@ class Pet(QWidget):
         else:
             painter.drawPixmap(QPointF(left, top), self.image())
 
-        # Pupillerne følger musen
         mouse_x, mouse_y = self.mouse_on_window()
         for eye in self.poses[self.pose]["eyes"]:
             cx, cy = self.to_window(eye["x"], eye["y"])
@@ -474,7 +422,6 @@ class Pet(QWidget):
             painter.setBrush(QColor("white"))
             painter.drawEllipse(QPointF(x - r * 0.35, y - r * 0.35), r * 0.25, r * 0.25)
 
-        # Tungen: en lyserød streg med en kugle for enden
         if self.tongue_line:
             mx, my, tx, ty = self.tongue_line
             painter.setPen(QPen(QColor("#e0607e"), max(2, 6 * self.size), Qt.SolidLine, Qt.RoundCap))
@@ -484,7 +431,6 @@ class Pet(QWidget):
             painter.setBrush(QColor("#e0607e"))
             painter.drawEllipse(QPointF(tx, ty), tip, tip)
 
-        # Hjerter og Z'er
         for e in self.effects:
             s = e["scale"]
             if e["kind"] == "heart":
