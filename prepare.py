@@ -1,7 +1,7 @@
-﻿"""Gør tegningerne i drawings/ klar til pet.py.
+"""Gør tegningerne i drawings/ klar til chameleon.py.
 
 For hver stilling er der to tegninger: en grøn og en outline (gennemsigtig krop).
-  1. Visk den tegnede pupil ud (pet.py tegner en ny, der kan bevæge sig)
+  1. Visk den tegnede pupil ud (chameleon.py tegner en ny, der kan bevæge sig)
   2. Skær den tomme kant væk
   3. Gør størrelsen større/mindre med SCALE
   4. Gør bløde kanter skarpe (Windows-tricket med den usynlige farve kan ikke "halvt")

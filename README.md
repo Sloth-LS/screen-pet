@@ -101,12 +101,11 @@ It ends up in `dist/`.
 
 ```
 chameleon.py      the pet – run this one
-pet.py            the same code with comments explaining every part
 drawings/         my original drawings (green + outline version of each pose)
 images/           prepared images, made by prepare.py
 prepare.py        crops, scales and mirrors the drawings, and erases the drawn pupils
                   (only needed if you change the drawings: pip install pillow, python prepare.py)
-min_pet.py        the tiny first version (tkinter, Windows only) – a good place to start reading
+preview.png       the picture at the top of this README
 requirements.txt  what to install
 ```
 
