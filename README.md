@@ -5,6 +5,8 @@ catches your cursor with its tongue, and can camouflage itself so it's never in 
 
 Works on **Windows, macOS and Linux**. Made for [Hack Club Playground](https://playground.hackclub.com).
 
+![The chameleon sitting, standing, lying down and camouflaged](preview.png)
+
 ## What it does
 
 | Do this | And the chameleon... |
@@ -24,7 +26,15 @@ Works on **Windows, macOS and Linux**. Made for [Hack Club Playground](https://p
 It also wanders around on its own, sits down and stands up, turns around at the
 screen edges, and its eyes follow your mouse.
 
-## Run it
+## Download (Windows)
+
+Download `Chameleon-Desktop-Pet-Windows.zip` from the itch.io page, unzip it and
+double-click `Kamaeleon.exe`. No install needed.
+
+Windows may say *"Windows protected your PC"* because the app isn't signed.
+Click **More info → Run anyway**. To close the chameleon, right-click it → *Luk*.
+
+## Run from source (Windows, macOS, Linux)
 
 Needs Python 3.10+.
 
