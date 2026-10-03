@@ -28,7 +28,7 @@ screen edges, and its eyes follow your mouse.
 
 ## Download (Windows)
 
-Download `Chameleon-Desktop-Pet-Windows.zip` from the itch.io page, unzip it and
+Download `Chameleon-Desktop-Pet-Windows.zip` from [itch.io](https://sloth158.itch.io/screen-pet-dom), unzip it and
 double-click `Kamaeleon.exe`. No install needed.
 
 Windows may say *"Windows protected your PC"* because the app isn't signed.
